@@ -105,7 +105,7 @@ class EC2ssh:
 		with hide('stdout', 'stderr'): 
 			self.log.debug('Writing %s to known_hosts' % ip)
 			sys.stderr = NullDevice()
-			if not local('ssh-keyscan -H %s >> %s/.ssh/known_hosts' % (ip, HOME)).succeeded:
+			if not local('ssh-keyscan -H %s >> %s/.ssh/known_hosts.new' % (ip, HOME)).succeeded:
 				self.log.warning('Could not write instance to known_hosts')
 
 	def checkForConfig(self):
@@ -121,19 +121,8 @@ class EC2ssh:
 
 	def finish(self):
 		try:
-			self.log.info('Renaming known_hosts to known_hosts.old')
-			try:
-				os.rename('%s/.ssh/known_hosts' % HOME, '%s/.ssh/known_hosts.old' % HOME)
-			except OSError, e:
-				self.log.critical('Could not rename known_hosts, please do so manually if you have any trouble with PyEC2:\n mv %s/known_hosts %s/known_hosts.old' % (HOME, HOME))
-				self.log.error(e)
 			self.log.info('Writing new SSH config')
-			try:
-				os.rename(self.configdir + 'config', self.configdir + 'config.old')
-			except OSError, e:
-				if self.checkForConfig():
-					self.log.error('Could not rename old config file. Proceeding to overwrite.')
-			with open(self.configdir + 'config', 'w+') as f:  # TODO: Write file to .ssh dir
+			with open(self.configdir + 'config.new', 'w+') as f:  # TODO: Write file to .ssh dir
 				self.log.debug('Writing to config file')
 				count = 1
 				instances = self.fetchAllInfo()
@@ -146,6 +135,19 @@ class EC2ssh:
 					f.write(self.indent('IdentityFile %s%s\n' % (self.key_dir, instance['key'])))
 					self.log.debug('Wrote {} - {}/{}'.format(instance['name'], count, len(instances)))
 					count += 1
+			try:
+				self.log.info('Renaming known_hosts to known_hosts.old')
+				os.rename('%s/.ssh/known_hosts' % HOME, '%s/.ssh/known_hosts.old' % HOME)
+				os.rename('%s/.ssh/known_hosts.new' % HOME, '%s/.ssh/known_hosts' % HOME)
+			except OSError, e:
+				self.log.critical('Could not rename known_hosts, please do so manually if you have any trouble with PyEC2:\n mv %s/known_hosts %s/known_hosts.old' % (HOME, HOME))
+				self.log.error(e)
+			try:
+				os.rename(self.configdir + 'config', self.configdir + 'config.old')
+				os.rename(self.configdir + 'config.new', self.configdir + 'config')
+			except OSError, e:
+				if self.checkForConfig():
+					self.log.error('Could not rename old config file. Proceeding to overwrite.')
 			self.log.info('New config file created. Wrote {} hosts.'.format(count))
 		except IOError, e:
 			self.log.error('Could not write to config file.')
