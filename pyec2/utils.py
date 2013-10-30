@@ -51,7 +51,7 @@ class Utils:
 				}
 		logger = logging.getLogger('pyec2.logger')
 		logger.setLevel(level[debug_level.lower()])
-		handler = logging.StreamHandler()
+		handler = logging.handlers.RotatingFileHandler('/tmp/pyec2.log', maxBytes=2097152, backupCount=2)
 		formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S')
 		handler.setFormatter(formatter)
 		logger.addHandler(handler)
