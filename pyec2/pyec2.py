@@ -125,6 +125,7 @@ class EC2ssh:
 			prepend_file = CONFIG['pyec2']['prepend_file']
 			prepend_lines = None
 			if prepend_file is not None:
+				self.log.debug('Prepend file found. Reading.')
 				with open(prepend_file, 'r') as pf:
 					prepend_lines = pf.read()
 			with open(self.configdir + 'config.new', 'w+') as f:  # TODO: Write file to .ssh dir
@@ -132,6 +133,7 @@ class EC2ssh:
 				if prepend_lines is not None:
 					f.writelines(prepend_lines)
 					f.write('\n')
+					self.log.debug('Wrote prepend file to ssh config.')
 				count = 1
 				instances = self.fetchAllInfo()
 				for instance in instances:
