@@ -102,7 +102,7 @@ class EC2ssh:
 				pass
 
 	def addToKnownHosts(self, ip):
-		with hide('stdout', 'stderr'): 
+		with hide('stdout', 'stderr'):
 			self.log.debug('Writing %s to known_hosts' % ip)
 			sys.stderr = NullDevice()
 			if not local('ssh-keyscan -H %s >> %s/.ssh/known_hosts.new' % (ip, HOME)).succeeded:
@@ -111,19 +111,27 @@ class EC2ssh:
 	def checkForConfig(self):
 		try:
 			with open(self.configdir + 'config') as config:
+				self.log.debug('Existing SSH config file found in {}'.format(self.configdir))
 				return True
-				self.log.debug('Existing SSH config file found in {}'.format(configdir))
 		except IOError, e:
 			if e.errno is 2:
-				self.log.info('No config file found in {}' .format(configdir))
+				self.log.info('No config file found in {}' .format(self.configdir))
 				return False
 			print e
 
 	def finish(self):
 		try:
 			self.log.info('Writing new SSH config')
+			prepend_file = CONFIG['pyec2']['prepend_file']
+			prepend_lines = None
+			if prepend_file is not None:
+				with open(prepend_file, 'r') as pf:
+					prepend_lines = pf.read()
 			with open(self.configdir + 'config.new', 'w+') as f:  # TODO: Write file to .ssh dir
 				self.log.debug('Writing to config file')
+				if prepend_lines is not None:
+					f.writelines(prepend_lines)
+					f.write('\n')
 				count = 1
 				instances = self.fetchAllInfo()
 				for instance in instances:
@@ -190,14 +198,14 @@ def main():
 	else:
 		if CONFIG is not None:
 			app = EC2ssh(
-							CONFIG['aws']['usernames'],
-							CONFIG['aws']['ec2_region'],
-							key_dir=CONFIG['pyec2']['key_dir'],
-							name_tag=CONFIG['aws']['name_tag'],
-							aws_access_key_id=CONFIG['aws']['aws_access_key_id'],
-							aws_secret_access_key=CONFIG['aws']['aws_secret_access_key'],
-							key_extension=CONFIG['pyec2']['key_extension'],
-							dry_run=dry_run
+						CONFIG['aws']['usernames'],
+						CONFIG['aws']['ec2_region'],
+						key_dir=CONFIG['pyec2']['key_dir'],
+						name_tag=CONFIG['aws']['name_tag'],
+						aws_access_key_id=CONFIG['aws']['aws_access_key_id'],
+						aws_secret_access_key=CONFIG['aws']['aws_secret_access_key'],
+						key_extension=CONFIG['pyec2']['key_extension'],
+						dry_run=dry_run
 						)
 			app.finish()
 		else:
@@ -216,5 +224,5 @@ def main():
 				Utils().printExceptions(files_not_found)
 
 
-if __name__=='__main__':	
+if __name__ == '__main__':
 	main()
