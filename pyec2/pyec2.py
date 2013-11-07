@@ -9,17 +9,19 @@ CONFIG = Utils().loadConfig()
 
 class EC2ssh:
 
-	def __init__(self, possible_user_names, ec2_region, key_dir='%s/.ssh/' % HOME, name_tag='Name', aws_access_key_id=None, aws_secret_access_key=None, key_extension=None, dry_run=False):
+	def __init__(self, possible_user_names, ec2_region, key_dir='%s/.ssh/' % HOME, name_tag='Name', aws_access_key_id=None, aws_secret_access_key=None, key_extension=None, custom_key_file=None, prepend_file=None, dry_run=False):
 		self.usernames = possible_user_names
 		self.key_dir = key_dir if key_dir[len(key_dir)-1:] is '/' else '%s/' % key_dir
 		self.name_tag = name_tag
 		self.conn = ec2.connect_to_region(ec2_region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 		self.prep = Utils().prepare
 		self.indent = Utils().indent
-		self.ext = Utils(key_extension=key_extension).keyExt
+		self.ext = Utils(key_extension=key_extension).keyExt if key_extension is not None else ''
 		self.dry_run = dry_run
 		self.log = Utils().log(CONFIG['pyec2']['log_level'])
 		self.configdir = '%s/.ssh/' % HOME
+		self.custom_key_file = custom_key_file
+		self.prepend_file = prepend_file
 
 	def fetchAllInfo(self):
 		if self.dry_run:
@@ -88,7 +90,10 @@ class EC2ssh:
 				env.abort_on_prompts = True
 				env.user = user
 				env.host_string = connection_info['ip']
-				env.key_filename = '{}{}'.format(self.key_dir, connection_info['key'])
+				if self.custom_key_file is not None:
+					env.key_filename = '{}{}'.format(self.key_dir, self.custom_key_file)
+				else:
+					env.key_filename = '{}{}'.format(self.key_dir, connection_info['key'])
 				conn = run('echo Connected to %(host_string)s as %(user)s' % env, quiet=True)
 				if conn.succeeded:
 					self.log.debug('Connection successful.')
@@ -122,14 +127,16 @@ class EC2ssh:
 	def finish(self):
 		try:
 			self.log.info('Writing new SSH config')
-			prepend_file = CONFIG['pyec2']['prepend_file']
+			prepend_file = self.prepend_file
 			prepend_lines = None
 			if prepend_file is not None:
 				self.log.debug('Prepend file found. Reading.')
 				with open(prepend_file, 'r') as pf:
 					prepend_lines = pf.read()
-			with open(self.configdir + 'config.new', 'w+') as f:  # TODO: Write file to .ssh dir
+			with open(self.configdir + 'config.new', 'w+') as f:
 				self.log.debug('Writing to config file')
+				if self.custom_key_file is not None:
+					self.log.debug('Custom key file found')
 				if prepend_lines is not None:
 					f.writelines(prepend_lines)
 					f.write('\n')
@@ -137,13 +144,17 @@ class EC2ssh:
 				count = 1
 				instances = self.fetchAllInfo()
 				for instance in instances:
+					name = instance['name']
 					if not self.dry_run:
 						instance = self.establishConnection(instance)
-					f.write('Host %s\n' % instance['name'])
-					f.write(self.indent('User %s\n' % instance['user']))
-					f.write(self.indent('HostName %s\n' % instance['ip']))
-					f.write(self.indent('IdentityFile %s%s\n' % (self.key_dir, instance['key'])))
-					self.log.debug('Wrote {} - {}/{}'.format(instance['name'], count, len(instances)))
+					if instance is not None:
+						f.write('Host %s\n' % instance['name'])
+						f.write(self.indent('User %s\n' % instance['user']))
+						f.write(self.indent('HostName %s\n' % instance['ip']))
+						f.write(self.indent('IdentityFile %s%s\n' % (self.key_dir, instance['key'])))
+						self.log.debug('Wrote {} - {}/{}'.format(instance['name'], count, len(instances)))
+					else:
+						self.log.info('Could not establish any connections to, {} are you sure your key fits?'.format(name))
 					count += 1
 			try:
 				self.log.info('Renaming known_hosts to known_hosts.old')
@@ -207,6 +218,8 @@ def main():
 						aws_access_key_id=CONFIG['aws']['aws_access_key_id'],
 						aws_secret_access_key=CONFIG['aws']['aws_secret_access_key'],
 						key_extension=CONFIG['pyec2']['key_extension'],
+						custom_key_file=CONFIG['pyec2']['custom_key_file'],
+						prepend_file=CONFIG['pyec2']['prepend_file'],
 						dry_run=dry_run
 						)
 			app.finish()

@@ -70,6 +70,10 @@ class Utils:
 					conf['pyec2'] = dict()
 					conf['pyec2']['key_dir'] = parser.get('pyec2', 'key_dir')
 					conf['pyec2']['key_extension'] = parser.get('pyec2', 'key_extension')
+					try:
+						conf['pyec2']['custom_key_file'] = parser.get('pyec2', 'custom_key_file')
+					except Exception:
+						pass
 					conf['pyec2']['log_level'] = parser.get('pyec2', 'log_level')
 					conf['pyec2']['add_to_known_hosts'] = parser.getboolean('pyec2', 'add_to_known_hosts')
 					conf['pyec2']['prepend_file'] = parser.get('pyec2', 'prepend_file')
@@ -109,10 +113,12 @@ class Utils:
 		result = dict()
 		result['pyec2'] = dict()
 		result['pyec2']['key_dir'] = raw_input('Key file directory: ')
-		result['pyec2']['key_extension'] = raw_input('Key file extension (E.g. pem): ')
+		result['pyec2']['key_extension'] = raw_input('Key file extension (E.g. pem - can also be blank if you don\'t use one.): ')
+		if self.promptChoice('Do you want to use your own key file instead of the one provided by AWS? (y/n): '):
+			result['pyec2']['custom_key_file'] = raw_input('Name of keyfile, without file extension. (Make sure it\'s in the directory you specified above): ')
 		result['pyec2']['log_level'] = raw_input('Log level (E.g. info, debug, warning, error): ')
 		result['pyec2']['add_to_known_hosts'] = self.promptChoice('Do you want PyEC2 to add the instances to known hosts automatically? (y/n): ')
-		result['pyec2']['prepend_file'] = raw_input('Do you have a .prepend file you would like to prependto the ssh config?\n(Use this to persist personal options, the lines will be added before any hosts in the config file. Use the absolute path to the file):')
+		result['pyec2']['prepend_file'] = raw_input('Do you have a .prepend file you would like to prependto the ssh config?\n(Use this to persist personal options, the lines will be added before any hosts in the config file. Use the absolute path to the file): ')
 		result['aws'] = dict()
 		result['aws']['usernames'] = raw_input('Possible usernames (Delimit by comma, no spaces. Put the most used one first): ')
 		result['aws']['aws_access_key_id'] = raw_input('AWS Access key ID: ')
